@@ -24,6 +24,7 @@
 // #define SAMPLE_BITS 	(32)    // LimeSuite capable of float32 IQ data
 #define GAIN_SCALE      (16.0)          // gain scale factor
 #define PORT            (1234)      	// default port
+#define MAGIC           ("RTL0")      	// rtl_tcp dongle_info magic number
 
 #define _POSIX_C_SOURCE 200112L
 #include <stdio.h>
@@ -45,6 +46,15 @@
 #include <errno.h>
 
 #include "lime/LimeSuite.h"
+
+// Dongle info structure sent over the wire upon connection
+typedef struct {
+    char magic[4];
+    uint32_t tuner_type;
+    uint32_t tuner_gain_count;
+} dongle_info_t;
+
+const dongle_info_t dongle_info = { MAGIC, 0, 0 };
 
 int sendcallback(float *p, int n);
 static void sighandler(int signum);
@@ -237,7 +247,10 @@ int main(int argc, char *argv[]) {
         inet_ntop(AF_INET6, &(cli_addr.sin6_addr), client_addr_ipv6, 100);
         printf("\nConnected to client with IP address: %s\n",
                client_addr_ipv6);
-        
+
+        // Sending dongle info: magic number, tuner type, and tuner gains count
+        send(client_sockfd, (const char *)&dongle_info, sizeof(dongle_info), 0);
+
         if (LMS_SetupStream(device, &streamId) != 0) { error(); }
         int m = LMS_StartStream(&streamId);
         printf("LMS start status = %d\n", m);
